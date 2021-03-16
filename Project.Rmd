@@ -1,0 +1,123 @@
+---
+title: "Web_Scraping"
+author: "David Barnes"
+date: "2/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(httr)
+library(tidyverse)
+library(rvest)
+library(doParallel)
+library(foreach)
+library(textstem)
+```
+
+```{r eval = FALSE}
+speeches_get <- GET("https://www.federalreserve.gov/json/ne-speeches.json")
+```
+
+```{r eval = FALSE}
+# cl <- makeCluster(detectCores() - 1)
+# 
+# registerDoParallel(cl)
+# 
+# t1 <- proc.time()
+# 
+# speeches <- content(speeches_get) %>%
+#   bind_rows() %>%
+#   transmute(Name = t,
+#             url = str_replace(l, "//", "/"), #rid of the "//" at the beginning of the url
+#             url = paste0("https://www.federalreserve.gov/", url)) %>%
+#   filter(!is.na(Name)) # filtering NA as the last row of the json is not a speech
+# speeches$speech_transcript <- "" # making sure the column speech_transcript works before I try to assign its values in the loop
+# 
+# 
+# for (i in 1:nrow(speeches)) { # going through urls and getting the text of the speeches
+#   speeches[i,]$speech_transcript <- read_html(speeches[i,]$url) %>%
+#     html_node("#content") %>%
+#     html_node("#article") %>%
+#     html_node("div:nth-child(3)") %>%
+#     html_text() %>%
+#     str_squish() # getting rid of multiple spaces and stuff
+# print(i)
+# }
+# 
+# proc.time() - t1  
+# 
+# stopCluster(cl)
+```
+
+```{r eval = FALSE}
+cl <- makeCluster(detectCores() - 1)
+
+registerDoParallel(cl)
+
+t1 <- proc.time()
+# grab speeches
+speeches <- content(speeches_get) %>%
+  bind_rows() %>%
+  transmute(Name = t,
+            url = str_replace(l, "//", "/"), #rid of the "//" at the beginning of the url
+            url = paste0("https://www.federalreserve.gov/", url)) %>%
+  filter(!is.na(Name)) # filtering NA as the last row of the json is not a speech
+speeches$speech_transcript <- "" # making sure the column speech_transcript works before I try to assign its values in the loop
+
+# loop through the speeches
+foreach(i = 1:nrow(speeches), .packages = c("tidyverse", "httr", "rvest")) %dopar% { # going through urls and getting the text of the speeches
+  speeches[i,]$speech_transcript <- read_html(speeches[i,]$url) %>%
+    html_node("#content") %>%
+    html_node("#article") %>%
+    html_node("div:nth-child(3)") %>%
+    html_text() %>%
+    str_squish() # getting rid of multiple spaces and stuff
+print(i)
+}
+
+proc.time() - t1  
+
+stopCluster(cl)
+```
+
+```{r}
+load("./Speeches.RData")
+```
+
+
+All 848 speeches from federal reserve. Probably shouldn't have done this much as it was really hard on my computer, but it was too tempting (sentiment analysis vs SP500 in future?).
+
+```{r}
+# example1 <-speeches$speech_transcript[1]
+# example1 #full speech
+example1 <- speeches$speech_transcript
+```
+
+```{r Text Cleaning}
+example1 <- gsub("\\\\", "", example1)
+example1 <- gsub("\"", "", example1)
+
+# remove parenthesis and their contents
+example1 <- gsub("\\s*\\([^\\)]+\\)", "", example1)
+
+example1 <- tm::removeNumbers(example1)
+
+# remove hyperlinks until a space is found
+example1 <- gsub(" ?(f|ht)(tp)s?(://)(\\S*)[./](\\S*)", "", example1)
+
+example1 <- gsub("pp.", "", example1)
+example1 <- gsub("vol.", "", example1)
+
+example1 <- tm::removePunctuation(example1)
+example1 <- gsub("–", "", example1)
+
+# example1[1:10]
+# lemmatize_words(example1)
+```
+
