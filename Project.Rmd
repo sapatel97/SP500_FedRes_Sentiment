@@ -23,10 +23,10 @@ library(httr)
 library(tidytext)
 ```
 
-```{r}
+```{r eval = FALSE}
 getStockData <- function(stockTicker) {
   # API KEY
-  avKey <- "0YR02HPT5Z0LVCHN"
+  avKey <- "REDACTED"
   baseLink <- "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&outputsize=full&symbol="
 
     avLinkGenerator <- paste(baseLink, 
@@ -34,12 +34,13 @@ getStockData <- function(stockTicker) {
                               "&apikey=", avKey, sep = "")
     
   avRequest <- GET(avLinkGenerator)
-  avParsed <- read.delim(text = content(avRequest, as = "text"), sep = ",")
+  avParsed <- read.delim(text = httr::content(avRequest, as = "text"), sep = ",")
   avParsed$timestamp <- as.Date(avParsed$timestamp)
   return(avParsed)
 }
 
 SPY_data <- getStockData("SPY")
+save(SPY_data, file = "./data/SPY_Data.Rdata")
 ```
 
 
@@ -85,9 +86,31 @@ for (i in 1:nrow(speeches)) {
   print(i)
 }
 
+test_names <- data.frame("testing")
+test_names$X.testing. <- ""
+
+read_html(speeches[1,]$url) %>%
+  html_node("#content") %>%
+  html_node("#article") %>%
+  html_node("heading col-xs-12 col-sm-8 col-md-8") %>%
+  html_text()
+#  html_node("speaker") %>%
+#  html_text()
+
+for (i in 1:nrow(speeches)) {
+  test_names[i,]$X.testing <- read_html(speeches[i,]$url) %>% 
+    html_node("#content") %>%
+    html_node("speaker") %>%
+    html_text()
+  
+  print(i)
+}
+
 proc.time() - t1
 
 stopCluster(cl)
+
+save(speeches, file = "./data/Speeches_Data.Rdata")
 ```
 
 ```{r eval = FALSE}
@@ -131,7 +154,8 @@ stopCluster(cl)
 ```
 
 ```{r}
-load("./Speeches.RData")
+# load("./Speeches.RData")
+load("./data/Speeches_Data.Rdata")
 ```
 
 
