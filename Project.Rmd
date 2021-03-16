@@ -12,47 +12,39 @@ knitr::opts_chunk$set(echo = TRUE)
 ## R Markdown
 
 ```{r}
-library(httr)
-library(tidyverse)
+library(dplyr)
 library(rvest)
 library(doParallel)
 library(foreach)
 library(textstem)
+library(tm)
+library(readr)
+library(httr)
+library(tidytext)
 ```
+
+```{r}
+getStockData <- function(stockTicker) {
+  # API KEY
+  avKey <- "0YR02HPT5Z0LVCHN"
+  baseLink <- "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&outputsize=full&symbol="
+
+    avLinkGenerator <- paste(baseLink, 
+                              stockTicker, "&interval=60min", "&datatype=csv",
+                              "&apikey=", avKey, sep = "")
+    
+  avRequest <- GET(avLinkGenerator)
+  avParsed <- read.delim(text = content(avRequest, as = "text"), sep = ",")
+  avParsed$timestamp <- as.Date(avParsed$timestamp)
+  return(avParsed)
+}
+
+SPY_data <- getStockData("SPY")
+```
+
 
 ```{r eval = FALSE}
 speeches_get <- GET("https://www.federalreserve.gov/json/ne-speeches.json")
-```
-
-```{r eval = FALSE}
-# cl <- makeCluster(detectCores() - 1)
-# 
-# registerDoParallel(cl)
-# 
-# t1 <- proc.time()
-# 
-# speeches <- content(speeches_get) %>%
-#   bind_rows() %>%
-#   transmute(Name = t,
-#             url = str_replace(l, "//", "/"), #rid of the "//" at the beginning of the url
-#             url = paste0("https://www.federalreserve.gov/", url)) %>%
-#   filter(!is.na(Name)) # filtering NA as the last row of the json is not a speech
-# speeches$speech_transcript <- "" # making sure the column speech_transcript works before I try to assign its values in the loop
-# 
-# 
-# for (i in 1:nrow(speeches)) { # going through urls and getting the text of the speeches
-#   speeches[i,]$speech_transcript <- read_html(speeches[i,]$url) %>%
-#     html_node("#content") %>%
-#     html_node("#article") %>%
-#     html_node("div:nth-child(3)") %>%
-#     html_text() %>%
-#     str_squish() # getting rid of multiple spaces and stuff
-# print(i)
-# }
-# 
-# proc.time() - t1  
-# 
-# stopCluster(cl)
 ```
 
 ```{r eval = FALSE}
@@ -61,7 +53,7 @@ cl <- makeCluster(detectCores() - 1)
 registerDoParallel(cl)
 
 t1 <- proc.time()
-# grab speeches
+
 speeches <- content(speeches_get) %>%
   bind_rows() %>%
   transmute(Name = t,
@@ -70,8 +62,8 @@ speeches <- content(speeches_get) %>%
   filter(!is.na(Name)) # filtering NA as the last row of the json is not a speech
 speeches$speech_transcript <- "" # making sure the column speech_transcript works before I try to assign its values in the loop
 
-# loop through the speeches
-foreach(i = 1:nrow(speeches), .packages = c("tidyverse", "httr", "rvest")) %dopar% { # going through urls and getting the text of the speeches
+
+for (i in 1:nrow(speeches)) { # going through urls and getting the text of the speeches
   speeches[i,]$speech_transcript <- read_html(speeches[i,]$url) %>%
     html_node("#content") %>%
     html_node("#article") %>%
@@ -80,10 +72,62 @@ foreach(i = 1:nrow(speeches), .packages = c("tidyverse", "httr", "rvest")) %dopa
     str_squish() # getting rid of multiple spaces and stuff
 print(i)
 }
+# get the date from the speeches
 
-proc.time() - t1  
+speeches$date <- ""
+
+for (i in 1:nrow(speeches)) {
+  speeches[i,]$date <- read_html(speeches[i,]$url) %>% 
+    html_node("#content") %>%
+    html_node("p") %>%
+    html_text()
+  
+  print(i)
+}
+
+proc.time() - t1
 
 stopCluster(cl)
+```
+
+```{r eval = FALSE}
+# cl <- makeCluster(detectCores() - 1)
+# 
+# registerDoParallel(cl)
+# 
+# t1 <- proc.time()
+# # grab speeches
+# speeches <- content(speeches_get) %>%
+#   bind_rows() %>%
+#   transmute(Name = t,
+#             url = str_replace(l, "//", "/"), #rid of the "//" at the beginning of the url
+#             url = paste0("https://www.federalreserve.gov/", url)) %>%
+#   filter(!is.na(Name)) # filtering NA as the last row of the json is not a speech
+# speeches$speech_transcript <- "" # making sure the column speech_transcript works before I try to assign its values in the loop
+# 
+# speeches <- speeches[1:100,]
+# 
+# # loop through the speeches
+# speech_parallel <- foreach(i = 1:nrow(speeches), .packages = c("tidyverse", "httr", "rvest")) %dopar% { # going through urls and getting the text of the speeches
+#   speeches[i,]$speech_transcript <- read_html(speeches[i,]$url) %>%
+#     html_node("#content") %>%
+#     html_node("#article") %>%
+#     html_node("div:nth-child(3)") %>%
+#     html_text() %>%
+#     str_squish() # getting rid of multiple spaces and stuff
+# }
+# 
+# df <- data.frame(matrix(unlist(speech_parallel), nrow=length(speech_parallel), byrow=TRUE))
+# 
+# for(i in speech_parallel) {
+#   speeches$speech_transcript[i,] <- data.frame(speech_parallel[[i]])
+# }
+# 
+# 
+# 
+# proc.time() - t1  
+# 
+# stopCluster(cl)
 ```
 
 ```{r}
@@ -96,28 +140,78 @@ All 848 speeches from federal reserve. Probably shouldn't have done this much as
 ```{r}
 # example1 <-speeches$speech_transcript[1]
 # example1 #full speech
-example1 <- speeches$speech_transcript
+speech_text <- speeches$speech_transcript
 ```
 
 ```{r Text Cleaning}
-example1 <- gsub("\\\\", "", example1)
-example1 <- gsub("\"", "", example1)
-
+# remove doubleback slashes and single backslashes
+speech_text <- gsub("\\\\", "", speech_text)
+speech_text <- gsub("\"", "", speech_text)
 # remove parenthesis and their contents
-example1 <- gsub("\\s*\\([^\\)]+\\)", "", example1)
-
-example1 <- tm::removeNumbers(example1)
-
+speech_text <- gsub("\\s*\\([^\\)]+\\)", "", speech_text)
 # remove hyperlinks until a space is found
-example1 <- gsub(" ?(f|ht)(tp)s?(://)(\\S*)[./](\\S*)", "", example1)
+speech_text <- gsub(" ?(f|ht)(tp)s?(://)(\\S*)[./](\\S*)", "", speech_text)
+# remove small strings/words that are in the text
+speech_text <- gsub("pp.", "", speech_text)
+speech_text <- gsub("vol.", "", speech_text)
+# remove punctuation and various symbols
+speech_text <- tm::removePunctuation(speech_text)
+speech_text <- gsub("–", "", speech_text)
+speech_text <- stripWhitespace(speech_text)
+# remove stopwords
+speech_text <- removeWords(speech_text, stopwords("en"))
+speech_text <- tolower(speech_text)
+# remove "return text" string which is prevalent in many speeches
+speech_text <- gsub("return text", "", speech_text)
+# remove this special dash from speeches
+speech_text <- gsub(" — ", "", speech_text)
+# remove numbers
+speech_text <- removeNumbers(speech_text)
 
-example1 <- gsub("pp.", "", example1)
-example1 <- gsub("vol.", "", example1)
 
-example1 <- tm::removePunctuation(example1)
-example1 <- gsub("–", "", example1)
+head(speech_text, n = 1)
+# looks pretty good now, lets lemmatize
+```
 
-# example1[1:10]
-# lemmatize_words(example1)
+```{r}
+speech_text <- lemmatize_strings(speech_text)
+head(speech_text, n = 1)
+```
+
+```{r}
+speeches$rowindex <- rownames(speeches)
+
+speech_text <- data.frame(speech_text)
+colnames(speech_text) <- "calltext"
+
+tokens <- speech_text %>%
+  group_by(rownames(speech_text)) %>%
+  unnest_tokens(tbl = ., output = word, input = calltext)
+
+sent_tokens <- tokens %>%
+  inner_join(get_sentiments("loughran")) %>%
+  count(sentiment) %>%
+  pivot_wider(values_from = n, names_from = sentiment, values_fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+names(sent_tokens)[names(sent_tokens) == 'rownames(speech_text)'] <- 'rowindex'
+
+speeches_sent <- left_join(speeches, sent_tokens, by.x = 'rowindex', by.y = "rowindex") 
+
+head(speeches_sent$date)
+
+speeches_sent$date <- as.Date(speeches_sent$date, format = "%b %d, %y")
+
+head(speeches_sent$date)
+
+speeches_sent$sentiment <- as.numeric(speeches_sent$sentiment)
+
+speeches_sent$speech_transcript <- ""
+
+speeches_agg_sent <- speeches_sent %>%
+  group_by(date) %>%
+  select(date, sentiment) %>%
+  mutate_each(funs(replace(sentiment, which(is.na(.)), 1))) %>% # NA values <- 0 in sentiment column
+  summarise(sentiment = mean(sentiment))
 ```
 
