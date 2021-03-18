@@ -21,7 +21,9 @@ library(tm)
 library(readr)
 library(httr)
 library(tidytext)
-library(doSNOW)
+library(tidyr)
+library(rlist)
+library(ggplot2)
 ```
 
 ```{r eval = FALSE}
@@ -42,6 +44,7 @@ getStockData <- function(stockTicker) {
 
 SPY_data <- getStockData("SPY")
 save(SPY_data, file = "./data/SPY_Data.Rdata")
+SPY_data <-SPY_data[,c(1,5)]
 ```
 
 
@@ -113,7 +116,6 @@ read_html(speeches[20,]$url) %>%
  html_node("speaker") %>%
  html_text()
 # pre-allocate a dataframe with 100 rows for example if youre looping 100 times so it doesnt have to reallocate memory
-
 for (i in 1:nrow(speeches)) {
   speeches$Name[i] <- read_html(speeches[i,]$url,) %>% 
     html_node("#content") %>%
@@ -123,6 +125,9 @@ for (i in 1:nrow(speeches)) {
     `[[`(2)
   print(speeches$Name[i])
   print(i)
+  
+  
+  
 }
  
 proc.time() - t1
@@ -259,5 +264,60 @@ speeches_agg_sent <- speeches_sent %>%
   select(date, sentiment) %>%
   mutate_each(funs(replace(sentiment, which(is.na(.)), 1))) %>% # NA values <- 0 in sentiment column
   summarise(sentiment = mean(sentiment))
+
+speechnames <- speeches[,c(1,4)]
+
+speechescombined <-left_join(speechnames,speeches_sent, by = "rowindex")
+speechescombinedcleaned <-speechescombined[c(1,6,13)]
+
+speechesnumbers <- speechescombinedcleaned %>%
+                    group_by(Name.x)%>%
+                    count()
+
+#Chairmen Ben(168), Leal(84), Daniel(54), Powell(50), and Donald(46) had the most speeches
+
+speechesBen <- speechescombinedcleaned%>%
+                filter(Name.x == "Chairman Ben S. Bernanke")
+speechesLeal <- speechescombinedcleaned%>%
+                filter(Name.x == "Governor Lael Brainard")
+
+speechesDaniel <- speechescombinedcleaned%>%
+                filter(Name.x == "Governor Daniel K. Tarullo")
+
+speechesPowell <- speechescombinedcleaned%>%
+                filter(Name.x == "Governor Jerome H. Powell")
+
+speechesDonald <- speechescombinedcleaned%>%
+                filter(Name.x == "Vice Chairman Donald L. Kohn")
+
+names(SPY_data)[1]<-paste("date")
+speechesBenSP <-merge(speechesBen,SPY_data, by = "date")
+speechesLeahSP <-merge(speechesLeal,SPY_data, by = "date")
+speechesDanielSP <-merge(speechesDaniel,SPY_data, by = "date")
+speechesPowellSP <-merge(speechesPowell,SPY_data, by = "date")
+speechesDonaldSP <-merge(speechesDonald,SPY_data, by = "date")
+
+
+ggplot(data = speechesBenSP) +
+        geom_line(mapping = aes(x = date, y = close )) +
+  geom_point(aes(x=date, y = close, color = sentiment))
+
+ggplot(data = speechesLeahSP) +
+        geom_line(mapping = aes(x = date, y = close )) +
+  geom_point(aes(x=date, y = close, color = sentiment))
+
+ggplot(data = speechesDanielSP) +
+        geom_line(mapping = aes(x = date, y = close )) +
+  geom_point(aes(x=date, y = close, color = sentiment))
+
+ggplot(data = speechesPowellSP) +
+        geom_line(mapping = aes(x = date, y = close )) +
+  geom_point(aes(x=date, y = close, color = sentiment))
+
+ggplot(data = speechesDonaldSP) +
+        geom_line(mapping = aes(x = date, y = close )) +
+  geom_point(aes(x=date, y = close, color = sentiment))
+              
+              
 ```
 
