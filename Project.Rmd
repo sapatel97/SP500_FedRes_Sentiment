@@ -266,13 +266,13 @@ ggplot(speeches_sent, aes(x=date)) +
 ```
 ```{r}
 #uncertainty
-ggplot(speeches_sent, aes(x=date)) + 
+uncertainty <- ggplot(speeches_sent, aes(x=date)) + 
   geom_line(aes(y = sentiment), color = "darkred", linetype = "twodash") + 
   geom_line(aes(y = uncertainty), color = "steelblue", linetype = "twodash")
 ```
 ```{r}
 #superfluous
-ggplot(speeches_sent, aes(x=date)) + 
+superfluous <- ggplot(speeches_sent, aes(x=date)) + 
   geom_line(aes(y = sentiment), color = "darkred", linetype = "twodash") + 
   geom_line(aes(y = superfluous), color = "steelblue", linetype = "twodash")
 ```
@@ -288,23 +288,89 @@ ggplot(speeches_sent, aes(x=date)) +
 
 ```
 ```{r}
-speeches_sent %>%
-  group_by(date) %>%
-  ggplot() +
-  geom_line(aes(x = date, y = sentiment), color = "darkred") + 
-  geom_line(aes(x = date, y = constraining), color = "steelblue") +
-  geom_line(aes(x = date, y = litigious), color = "yellow") +
-  geom_line(aes(x = date, y = negative), color = "black") +
-  geom_line(aes(x = date, y = positive), color = "grey") + 
-  geom_line(aes(x = date, y = uncertainty), color = "green") +
-  geom_line(aes(x = date, y = superfluous), color = "purple") +
-  facet_wrap(~ ) 
-  
+library(ggplot2)
+library(ggpubr)
+
+sentiment <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = sentiment), color = "steelblue") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+constraining <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = constraining), color = "steelblue") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+litigious <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = litigious), color = "steelblue") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank()) 
+
+negative <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = negative), color = "steelblue") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+positive <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = positive), color = "steelblue") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+uncertainty <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = uncertainty), color = "steelblue") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+superfluous <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = superfluous), color = "steelblue") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+ggarrange(sentiment, constraining, litigious, negative, positive, uncertainty, superfluous)
+
 
 ```
 
 ```{r}
+library(ggplot2)
+library(ggpubr)
 
+sentiment_smooth <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_smooth(aes(y = sentiment), color = "gold") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+constraining_smooth <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_smooth(aes(y = constraining), color = "gold") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+litigious_smooth <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_smooth(aes(y = litigious), color = "gold") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+negative_smooth <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_smooth(aes(y = negative), color = "gold") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+positive_smooth <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_smooth(aes(y = positive), color = "gold") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+uncertainty_smooth <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_smooth(aes(y = uncertainty), color = "gold") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+superfluous_smooth <- ggplot(speeches_sent, aes(x=date)) + 
+  geom_smooth(aes(y = superfluous), color = "gold") +
+  theme(axis.text.x =  element_blank(),
+        axis.ticks.x = element_blank())
+
+ggarrange(sentiment_smooth, constraining_smooth, litigious_smooth, negative_smooth, positive_smooth, uncertainty_smooth, superfluous_smooth)
 ```
 
 
