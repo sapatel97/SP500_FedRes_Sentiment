@@ -49,7 +49,7 @@ speeches_get <- GET("https://www.federalreserve.gov/json/ne-speeches.json")
 ```
 
 ```{r eval = FALSE}
-cl <- makeCluster(detectCores() - 1)
+cl <- makeCluster(detectCores() - 1) 
 
 registerDoParallel(cl)
 
@@ -215,7 +215,7 @@ tokens <- speech_text %>%
 sent_tokens <- tokens %>%
   inner_join(get_sentiments("loughran")) %>%
   count(sentiment) %>%
-  pivot_wider(values_from = n, names_from = sentiment, values_fill = 0) %>%
+  tidyr::pivot_wider(values_from = n, names_from = sentiment, values_fill = 0) %>%
   mutate(sentiment = positive - negative)
 
 names(sent_tokens)[names(sent_tokens) == 'rownames(speech_text)'] <- 'rowindex'
@@ -238,4 +238,73 @@ speeches_agg_sent <- speeches_sent %>%
   mutate_each(funs(replace(sentiment, which(is.na(.)), 1))) %>% # NA values <- 0 in sentiment column
   summarise(sentiment = mean(sentiment))
 ```
+```{r}
+library(ggplot2)
+
+#constraining
+ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = sentiment), color = "darkred") + 
+  geom_line(aes(y = constraining), color = "steelblue")
+```
+```{r}
+#litigious
+ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = sentiment), color = "darkred") + 
+  geom_line(aes(y = litigious), color = "yellow")
+```
+```{r}
+#negative
+ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = sentiment), color = "darkred") + 
+  geom_line(aes(y = negative), color = "green")
+```
+```{r}
+#positive
+ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = sentiment), color = "darkred", linetype = "twodash") + 
+  geom_line(aes(y = positive), color = "purple", linetype = "twodash")
+```
+```{r}
+#uncertainty
+ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = sentiment), color = "darkred", linetype = "twodash") + 
+  geom_line(aes(y = uncertainty), color = "steelblue", linetype = "twodash")
+```
+```{r}
+#superfluous
+ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = sentiment), color = "darkred", linetype = "twodash") + 
+  geom_line(aes(y = superfluous), color = "steelblue", linetype = "twodash")
+```
+
+```{r}
+ggplot(speeches_sent, aes(x=date)) + 
+  geom_line(aes(y = sentiment), color = "darkred", linetype = "twodash") + 
+  geom_line(aes(y = constraining), color = "steelblue", linetype = "twodash") +
+  geom_line(aes(y = litigious), color = "yellow", linetype = "twodash") +
+  geom_line(aes(y = uncertainty), color = "green", linetype = "twodash") +
+  geom_line(aes(y = superfluous), color = "purple", linetype = "twodash") 
+
+
+```
+```{r}
+speeches_sent %>%
+  group_by(date) %>%
+  ggplot() +
+  geom_line(aes(x = date, y = sentiment), color = "darkred") + 
+  geom_line(aes(x = date, y = constraining), color = "steelblue") +
+  geom_line(aes(x = date, y = litigious), color = "yellow") +
+  geom_line(aes(x = date, y = negative), color = "black") +
+  geom_line(aes(x = date, y = positive), color = "grey") + 
+  geom_line(aes(x = date, y = uncertainty), color = "green") +
+  geom_line(aes(x = date, y = superfluous), color = "purple") +
+  facet_wrap(~ ) 
+  
+
+```
+
+```{r}
+
+```
+
 
