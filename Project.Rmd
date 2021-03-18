@@ -276,3 +276,31 @@ names_date_agg_sent <- speeches_sent %>%
   summarise(sentiment = mean(sentiment))
 ```
 
+```{r}
+library(ggplot2)
+library(ggpubr)
+
+merged_sent_call <- merge(SPY_data, speeches_agg_sent, by.x = "timestamp", by.y = "date")
+
+mergedplot_sep <- ggplot(merged_sent_call) +
+  geom_line(aes(x = timestamp, y = close), color = "blue") + # stock data
+  geom_line(aes(x = timestamp, y = sentiment), color = "red") + # sentiment data
+  xlab('Dates') +
+  ylab('Stock Price and Mean Sentiment')
+mergedplot_sep
+
+stockplot <- ggplot(merged_sent_call) +
+  geom_line(aes(x = timestamp, y = close), color = "blue") + # stock data
+  #geom_line(aes(x = stock_date, y = sentiment), color = "red") + # sentiment data
+  xlab('Dates') +
+  ylab('Stock Price')
+
+sentplot <- ggplot(merged_sent_call) +
+  geom_line(aes(x = timestamp, y = sentiment), color = "red") + # sentiment data
+  xlab('Dates') +
+  ylab('Sentiment')
+
+stacked <- ggpubr::ggarrange(stockplot, sentplot, labels = c("Stock Price", "Mean Sentiment"), ncol = 1, nrow = 2)
+stacked
+```
+
