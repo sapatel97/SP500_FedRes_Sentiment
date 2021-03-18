@@ -14,14 +14,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(dplyr)
 library(rvest)
-library(doParallel)
+#library(doParallel)
 library(foreach)
 library(textstem)
 library(tm)
 library(readr)
 library(httr)
 library(tidytext)
-library(doSNOW)
+#library(doSNOW)
 ```
 
 ```{r eval = FALSE}
@@ -50,79 +50,68 @@ speeches_get <- GET("https://www.federalreserve.gov/json/ne-speeches.json")
 ```
 
 ```{r eval = FALSE}
-cl <- makeCluster(detectCores() - 1)
-
-registerDoParallel(cl)
-
-iterations <- 848
-pb <- txtProgressBar(max = iterations, style = 3)
-
-progress <- function(n) setTxtProgressBar(pb, n)
-opts <- list(progress = progress)
-
-t1 <- proc.time()
+# cl <- makeCluster(detectCores() - 1)
+# 
+# registerDoSNOW(cl)
+# 
+# iterations <- 857
+# pb <- txtProgressBar(max = iterations, style = 3)
+# 
+# progress <- function(n) setTxtProgressBar(pb, n)
+# opts <- list(progress = progress)
+# 
+# t1 <- proc.time()
 
 speeches <- httr::content(speeches_get) %>%
   bind_rows() %>%
   transmute(Name = t,
-            url = str_replace(l, "//", "/"), #rid of the "//" at the beginning of the url
+            url = stringr::str_replace(l, "//", "/"), #rid of the "//" at the beginning of the url
             url = paste0("https://www.federalreserve.gov/", url)) %>%
   filter(!is.na(Name)) # filtering NA as the last row of the json is not a speech
-speeches$speech_transcript <- "" # making sure the column speech_transcript works before I try to assign its values in the loop
 
 
-foreach(i = 1:nrow(speeches), .options.snow = opts, .packages = c("tidyverse", "httr", "rvest")) %dopar% {
-  
-    
-  
-}
-
-for (i in 1:nrow(speeches)) { # going through urls and getting the text of the speeches
-  speeches[i,]$speech_transcript <- read_html(speeches[i,]$url) %>%
-    html_node("#content") %>%
-    html_node("#article") %>%
-    html_node("div:nth-child(3)") %>%
-    html_text() %>%
-    str_squish() # getting rid of multiple spaces and stuff
-print(i)
-}
-# get the date from the speeches
-
+speeches$speech_transcript <- "" #init blank column for the next loops
 speeches$date <- ""
 
-for (i in 1:nrow(speeches)) {
-  speeches[i,]$date <- read_html(speeches[i,]$url) %>%
-    html_node("#content") %>%
-    html_node("p") %>%
-    html_text()
 
-  print(i)
-}
-
-# uncomment above later after names
-
-# test_names <- data.frame("testing")
-# test_names$X.testing. <- ""
-
-read_html(speeches[20,]$url) %>%
-  html_node("#content") %>%
-  html_node("#article") %>%
-  html_nodes("p") %>%
-  html_text() %>%
+for(i in 1:nrow(speeches)) {
+  
+  html_temp <- read_html(speeches[i,]$url)
+  # get the speech transcripts
+    speeches[i,]$speech_transcript <- html_temp %>%
+      html_node("#content") %>%
+      html_node("#article") %>%
+      html_node("div:nth-child(3)") %>%
+      html_text() %>%
+      stringr::str_squish() # getting rid of multiple spaces and stuff
+    
+  # get the dates of the speeches
+    speeches[i,]$date <- html_temp %>%
+      html_node("#content") %>%
+      html_node("p") %>%
+      html_text()
+    # speeches[i,]$date <- read_html(speeches[i,]$url) %>%
+    #   html_node("#content") %>%
+    #   html_node("p") %>%
+    #   html_text()
+  # get the speaker
+    speeches$Name[i] <- html_temp %>%
+      html_node("#content") %>%
+      html_node("#article") %>%
+      html_nodes("p") %>%
+      html_text() %>%
       `[[`(2)
- html_node("speaker") %>%
- html_text()
-# pre-allocate a dataframe with 100 rows for example if youre looping 100 times so it doesnt have to reallocate memory
-
-for (i in 1:nrow(speeches)) {
-  speeches$Name[i] <- read_html(speeches[i,]$url,) %>% 
-    html_node("#content") %>%
-    html_node("#article") %>%
-    html_nodes("p") %>%
-    html_text() %>%
-    `[[`(2)
-  print(speeches$Name[i])
-  print(i)
+    # speeches$Name[i] <- read_html(speeches[i,]$url,) %>% 
+    #   html_node("#content") %>%
+    #   html_node("#article") %>%
+    #   html_nodes("p") %>%
+    #   html_text() %>%
+    #   `[[`(2)
+    
+    print(i)
+    print(speeches$Name[i])
+    print(speeches$date[i])
+  
 }
  
 proc.time() - t1
@@ -237,7 +226,7 @@ tokens <- speech_text %>%
 sent_tokens <- tokens %>%
   inner_join(get_sentiments("loughran")) %>%
   count(sentiment) %>%
-  pivot_wider(values_from = n, names_from = sentiment, values_fill = 0) %>%
+  tidyr::pivot_wider(values_from = n, names_from = sentiment, values_fill = 0) %>%
   mutate(sentiment = positive - negative)
 
 names(sent_tokens)[names(sent_tokens) == 'rownames(speech_text)'] <- 'rowindex'
@@ -246,7 +235,7 @@ speeches_sent <- left_join(speeches, sent_tokens, by.x = 'rowindex', by.y = "row
 
 head(speeches_sent$date)
 
-speeches_sent$date <- as.Date(speeches_sent$date, format = "%b %d, %y")
+speeches_sent$date <- as.Date(speeches_sent$date, format = "%b %d, %Y")
 
 head(speeches_sent$date)
 
@@ -254,9 +243,35 @@ speeches_sent$sentiment <- as.numeric(speeches_sent$sentiment)
 
 speeches_sent$speech_transcript <- ""
 
+save(speeches_sent, file = "./data/Speeches_Sent.Rdata")
+```
+
+```{r}
+# Aggregate the speeches with sent dataframe
+
+load("./data/Speeches_Sent.Rdata")
+
+speaker_occurences <- as.data.frame(table(speeches_sent$Name))
+speaker_occurences <- speaker_occurences[order(-speaker_occurences$Freq),]
+head(speaker_occurences)
+
+
+
 speeches_agg_sent <- speeches_sent %>%
   group_by(date) %>%
   select(date, sentiment) %>%
+  mutate_each(funs(replace(sentiment, which(is.na(.)), 1))) %>% # NA values <- 0 in sentiment column
+  summarise(sentiment = mean(sentiment))
+
+names_agg_sent <- speeches_sent %>%
+  group_by(Name) %>%
+  select(Name, date, sentiment) %>%
+  mutate_each(funs(replace(sentiment, which(is.na(.)), 1))) %>% # NA values <- 0 in sentiment column
+  summarise(sentiment = mean(sentiment))
+
+names_date_agg_sent <- speeches_sent %>%
+  group_by(date, Name) %>%
+  select(Name, date, sentiment) %>%
   mutate_each(funs(replace(sentiment, which(is.na(.)), 1))) %>% # NA values <- 0 in sentiment column
   summarise(sentiment = mean(sentiment))
 ```
