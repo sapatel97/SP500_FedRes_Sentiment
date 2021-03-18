@@ -52,9 +52,9 @@ speeches_get <- GET("https://www.federalreserve.gov/json/ne-speeches.json")
 ```{r eval = FALSE}
 cl <- makeCluster(detectCores() - 1)
 
-# registerDoParallel(cl)
-registerDoSNOW(cl)
-iterations <- 100
+registerDoParallel(cl)
+
+iterations <- 848
 pb <- txtProgressBar(max = iterations, style = 3)
 
 progress <- function(n) setTxtProgressBar(pb, n)
@@ -62,38 +62,42 @@ opts <- list(progress = progress)
 
 t1 <- proc.time()
 
-# uncomment below after names
+speeches <- httr::content(speeches_get) %>%
+  bind_rows() %>%
+  transmute(Name = t,
+            url = str_replace(l, "//", "/"), #rid of the "//" at the beginning of the url
+            url = paste0("https://www.federalreserve.gov/", url)) %>%
+  filter(!is.na(Name)) # filtering NA as the last row of the json is not a speech
+speeches$speech_transcript <- "" # making sure the column speech_transcript works before I try to assign its values in the loop
 
-# speeches <- content(speeches_get) %>%
-#   bind_rows() %>%
-#   transmute(Name = t,
-#             url = str_replace(l, "//", "/"), #rid of the "//" at the beginning of the url
-#             url = paste0("https://www.federalreserve.gov/", url)) %>%
-#   filter(!is.na(Name)) # filtering NA as the last row of the json is not a speech
-# speeches$speech_transcript <- "" # making sure the column speech_transcript works before I try to assign its values in the loop
-# 
-# 
-# for (i in 1:nrow(speeches)) { # going through urls and getting the text of the speeches
-#   speeches[i,]$speech_transcript <- read_html(speeches[i,]$url) %>%
-#     html_node("#content") %>%
-#     html_node("#article") %>%
-#     html_node("div:nth-child(3)") %>%
-#     html_text() %>%
-#     str_squish() # getting rid of multiple spaces and stuff
-# print(i)
-# }
-# # get the date from the speeches
-# 
-# speeches$date <- ""
-# 
-# for (i in 1:nrow(speeches)) {
-#   speeches[i,]$date <- read_html(speeches[i,]$url) %>% 
-#     html_node("#content") %>%
-#     html_node("p") %>%
-#     html_text()
-#   
-#   print(i)
-# }
+
+foreach(i = 1:nrow(speeches), .options.snow = opts, .packages = c("tidyverse", "httr", "rvest")) %dopar% {
+  
+    
+  
+}
+
+for (i in 1:nrow(speeches)) { # going through urls and getting the text of the speeches
+  speeches[i,]$speech_transcript <- read_html(speeches[i,]$url) %>%
+    html_node("#content") %>%
+    html_node("#article") %>%
+    html_node("div:nth-child(3)") %>%
+    html_text() %>%
+    str_squish() # getting rid of multiple spaces and stuff
+print(i)
+}
+# get the date from the speeches
+
+speeches$date <- ""
+
+for (i in 1:nrow(speeches)) {
+  speeches[i,]$date <- read_html(speeches[i,]$url) %>%
+    html_node("#content") %>%
+    html_node("p") %>%
+    html_text()
+
+  print(i)
+}
 
 # uncomment above later after names
 
@@ -108,25 +112,27 @@ read_html(speeches[20,]$url) %>%
       `[[`(2)
  html_node("speaker") %>%
  html_text()
+# pre-allocate a dataframe with 100 rows for example if youre looping 100 times so it doesnt have to reallocate memory
 
-for (i in 18:nrow(speeches)) {
-  Sys.sleep(.5)
-  speeches$Name[i] <- read_html(speeches[i,]$url) %>% 
+for (i in 1:nrow(speeches)) {
+  speeches$Name[i] <- read_html(speeches[i,]$url,) %>% 
     html_node("#content") %>%
     html_node("#article") %>%
     html_nodes("p") %>%
     html_text() %>%
     `[[`(2)
-  print(test_names_loop[i])
+  print(speeches$Name[i])
   print(i)
 }
-
+ 
 proc.time() - t1
 
 close(pb)
 stopCluster(cl)
 
 # save(speeches, file = "./data/Speeches_Data.Rdata")
+# speech_names <- data.frame(speeches$Name)
+# save(speech_names, file = "./data/Speech_Names.Rdata")
 ```
 
 ```{r eval = FALSE}
